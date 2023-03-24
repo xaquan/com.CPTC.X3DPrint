@@ -1,0 +1,14 @@
+def xprintPro():
+	global isTriggerWelder  = False
+	global welderTriggerPin = $WelderTriggerPin
+	
+	
+	
+	thread weldingTrigger():
+		if isTriggerWelder == True:
+			set_digital_out(welderTriggerPin, 1)
+		else:
+			set_digital_out(welderTriggerPin, 0)
+		end
+	end
+end
