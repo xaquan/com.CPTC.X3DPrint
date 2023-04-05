@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1679641622119
+Bnd-LastModified: 1680727973549
 Build-Jdk: 1.8.0_362
 Built-By: osboxes
 Bundle-Activator: com.CPTC.X3DPrint.impl.Activator

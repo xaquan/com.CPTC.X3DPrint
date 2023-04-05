@@ -1,6 +1,7 @@
 package com.CPTC.X3DPrint.impl;
 
 import java.util.Locale;
+import java.util.UUID;
 
 import com.ur.urcap.api.contribution.ProgramNodeService;
 import com.ur.urcap.api.contribution.ViewAPIProvider;
@@ -14,7 +15,7 @@ public class X3DPrintProgramNodeService implements SwingProgramNodeService<X3DPr
 
 	@Override
 	public String getId() {
-		return "3DPrint";
+		return "3DPrint"+UUID.randomUUID();
 	}
 
 	@Override
@@ -24,8 +25,8 @@ public class X3DPrintProgramNodeService implements SwingProgramNodeService<X3DPr
 	}
 
 	@Override
-	public String getTitle(Locale locale) {
-		return "3D Print";
+	public String getTitle(Locale locale) {		
+		return "3D_Print";
 	}
 
 	@Override

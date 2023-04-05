@@ -4,6 +4,7 @@ package com.CPTC.X3DPrint;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -22,7 +23,6 @@ public class GCode2URScript {
 	
 	private HashMap<String, String> gCode2URscriptMap = new HashMap<String, String>();
 	private ArrayList<String> urScriptWriter = new ArrayList<String>();
-	private String[] majorCommandGCode = {"G", "M", "F", "S"};
 	
 	private final String URSCRIPT_POSE = "p[%f,%f,%f,%f,%f,%f]";
 	private final String URSCRIPT_MOVEJ = "movej(%s,a=%f,v=%f)\n";
@@ -35,15 +35,17 @@ public class GCode2URScript {
 	private double printing_speed;
 	private double printing_acceleration;
 	private int trigger_pinNumber;
-	private double[] homePosition;
+	private double[] zeroPosition;
 	private String path;
+	private boolean currentWeldingTriggerState;
+	private double lastExtruderPos = 0;
 	
-	public GCode2URScript(String path, double[] homePosition, double printing_speed_MM, double printing_acceleration_MM) {
+	public GCode2URScript(String path, double[] zeroPosition, double printing_speed_MM, double printing_acceleration_MM) {
 //		this.travel_speed = travel_speed;
 //		this.travel_acceleration = travel_acceleration;
 		this.printing_speed = printing_speed_MM/1000;
 		this.printing_acceleration = printing_acceleration_MM/1000;
-		this.homePosition = homePosition;
+		this.zeroPosition = zeroPosition;
 		this.path = path;
 		
 	}
@@ -53,12 +55,10 @@ public class GCode2URScript {
 	}
 	
 	public void setTCPHome(double[] position) {
-		homePosition = position;
+		zeroPosition = position;
 	}
 	
 	private void convert(File sourceFile) {
-		
-		String urScript = "";
 		try {
 			BufferedReader ncFile = new BufferedReader(new FileReader(sourceFile));
 			
@@ -75,6 +75,7 @@ public class GCode2URScript {
 				}
 	        
 			}
+			ncFile.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -105,14 +106,11 @@ public class GCode2URScript {
 		if(codeGroup == 'S') {
 			gCommandCodeS(codeParts);
 		}
-		
-//		System.out.print(urScriptWriter.toString());
 	}
 	
 	private void gCommandCodeG(String command, HashMap<String, String> agruments) {
 		String urScript = "";
 		String pose = URSCRIPT_POSE;
-//		double[] positions = homePosition.toArray(Length.Unit.MM, Angle.Unit.RAD);
 		
 		if(command.equals("G0")) {
 			urScript = URSCRIPT_MOVEJ;
@@ -123,7 +121,7 @@ public class GCode2URScript {
 		}
 		
 		if(agruments.get("E") != null) {
-			gCommandCodeE(Float.parseFloat(agruments.get("E")));
+			gCommandCodeE(Double.parseDouble(agruments.get("E")));
 		}
 		
 		if(agruments.get("F") != null) {
@@ -132,12 +130,12 @@ public class GCode2URScript {
 		
 		if(agruments.containsKey("X") || agruments.containsKey("Y") || agruments.containsKey("Z")) {
 				
-			double X = homePosition[0];
-			double Y = homePosition[1];
-			double Z = homePosition[2];		
-			double Rx = homePosition[3];
-			double Ry = homePosition[4];
-			double Rz = homePosition[5];
+			double X = zeroPosition[0];
+			double Y = zeroPosition[1];
+			double Z = zeroPosition[2];		
+			double Rx = zeroPosition[3];
+			double Ry = zeroPosition[4];
+			double Rz = zeroPosition[5];
 	
 			if(agruments.containsKey("X")) {
 				X += Double.parseDouble(agruments.get("X")) / 1000;
@@ -152,9 +150,13 @@ public class GCode2URScript {
 			}
 			
 			pose =  String.format(pose, X, Y, Z, Rx, Ry, Rz);
-			urScript = String.format(urScript, pose, printing_speed, printing_acceleration);
-			urScriptWriter.add(urScript);
+			urScript = String.format(urScript, pose, getPrintSpeed(), printing_acceleration);
+			addURScriptLine(urScript);
 		}
+	}
+	
+	private void gCommandCodeG92() {
+		
 	}
 	
 	private void gCommandCodeM(String[] codeParts) {
@@ -167,37 +169,54 @@ public class GCode2URScript {
 	
 	private void gCommandCodeF(double speed, String command) {
 		double speed_M = speed/1000;
-		printing_speed = speed_M;
-		
-//		if (command.equals("G1")) {
-//				printing_speed = speed_M;
-//		}else {
-//			travel_speed = speed_M;
-//		}
+//		setPrintSpeed(speed_M);
+//		addLogInRobot("Change speed", String.valueOf(speed_M));
 	}
 
-	private void gCommandCodeE(float value) {
-//		String urSript_wireFeedSpeed = URSCRIPT_ANALOG_OUT;
-		String urSript_setTrigger = URSCRIPT_DIGITAL_OUT;
+	private void gCommandCodeE(double extruderPos) {
+		String urSript_setTrigger;
+		boolean isRetractExtruder = extruderPos < lastExtruderPos;
+		boolean setTrigger = false;
+		String setValue = "False";
+		
 		if(trigger_pinNumber > -1) {
-			if(value > 0) {
+			if(extruderPos > 0 && !isRetractExtruder) {
 				// Trigger on.			
-				urSript_setTrigger = String.format(urSript_setTrigger, trigger_pinNumber, "True");
-				
+				setValue = "True";
+				setTrigger = true;
 				//Need to add code to control the wirefeed speed.
-			}else {
-				// Trigger off
-				urSript_setTrigger = String.format(urSript_setTrigger, trigger_pinNumber, "False");
 			}
 			
-			urScriptWriter.add(urSript_setTrigger);
+			urSript_setTrigger = String.format(URSCRIPT_DIGITAL_OUT, trigger_pinNumber, setValue);
+			
+			if(setTrigger != currentWeldingTriggerState) {
+				addURScriptLine(urSript_setTrigger);
+			}
+			currentWeldingTriggerState = setTrigger;
+			lastExtruderPos = extruderPos;
 		}
 	}
 	
+	private void setPrintSpeed(double speed) {
+		printing_speed = speed;
+	}
+	
+	private double getPrintSpeed() {
+		return printing_speed;
+	}
+	
+	private void addURScriptLine(String script) {
+		urScriptWriter.add(script);
+	}
 	
 	public ArrayList<String> generateURScript() {
 		File sourceFile = new File(path);
-		convert(sourceFile);
+		convert(sourceFile);	
+		
 		return urScriptWriter;
+	}
+	
+	public void addLogInRobot(String title, String value) {
+		addURScriptLine("textmsg(\"" + title + "\",\"" + value + "\")");
 	}
 }

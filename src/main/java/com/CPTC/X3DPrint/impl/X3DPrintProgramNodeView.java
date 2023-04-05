@@ -14,6 +14,8 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.beans.PropertyChangeListener;
 import java.io.File;
+import java.text.DecimalFormat;
+import java.util.Iterator;
 
 import javax.swing.Action;
 import javax.swing.Box;
@@ -44,9 +46,11 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 	private JComboBox<String> triggerComboBox = new JComboBox<String>();
 	private JComboBox<String> wirefeedComboBox = new JComboBox<String>();
 	private JSlider wirefeedRateSlider = new JSlider();
-	private JLabel filenameLabel = new JLabel();
+	private JLabel filenameLabel = new JLabel();	
 	private JTextField speedTextField = new JTextField();
 	private JTextField accelerationTextField = new JTextField();
+	private JButton setHomeButton = new JButton("Set Home Position");
+	private JLabel homePositionLabel = new JLabel();
 	
 	private final ViewAPIProvider apiProvider;
 	private ContributionProvider<X3DPrintProgramNodeContribution> provider;
@@ -58,8 +62,8 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 		wirefeedComboBox.addItemListener(wirefeedCbItemListener);
 	}
 	
-	public void setWirefeedRateSlider() {
-		wirefeedRateSlider.setValue(30);
+	public void setWirefeedRateSlider(int rate) {
+		wirefeedRateSlider.setValue(rate);
 	}
 	
 	public void setTriggerSelectedItem(int index) {
@@ -91,6 +95,20 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 	public void setSelectedFileNameLabel(String filename) {
 		filenameLabel.setText(filename);
 	}
+	
+	public void setHomePositionLabel(double[] positions) {
+		String lbl = "Home is not set!";
+		if(positions != null) {
+			lbl = "[";
+			for (double d : positions) {
+				DecimalFormat df = new DecimalFormat("#.00");
+				lbl+=String.valueOf(df.format(d*1000)) + ", ";
+			}
+			lbl += "]";
+		}
+		
+		homePositionLabel.setText(lbl);
+	}
 
 	@Override
 	public void buildUI(JPanel panel, final ContributionProvider<X3DPrintProgramNodeContribution> provider) {
@@ -100,7 +118,7 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 		Box triggerBox = createDropBox(triggerComboBox, "Welder trigger Digital");
 		Box wirefeedBox = createDropBox(wirefeedComboBox, "Wirefeed Analog");
 		
-		
+		panel.add(createSetHomeButton());
 		panel.add(triggerBox);
 		panel.add(wirefeedBox);
 		panel.add(createSlider(wirefeedRateSlider));
@@ -166,6 +184,49 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 		return box;
 	}
 	
+	private Box createSetHomeButton() {
+		Box box = Box.createHorizontalBox();
+		box.setAlignmentX(Component.LEFT_ALIGNMENT);
+		
+		setHomeButton.addMouseListener(new MouseListener() {
+			
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mousePressed(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mouseExited(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				provider.get().onSetHome();
+				setHomePositionLabel(provider.get().getHomePosition());
+			}
+		});
+		
+		box.add(setHomeButton);
+		box.add(homePositionLabel);
+		
+		return box;
+	}
+	
 	private Box createSlider(final JSlider slider) {
 		Box box = Box.createHorizontalBox();
 		box.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -186,6 +247,7 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 			@Override
 			public void stateChanged(ChangeEvent e) {
 				endLabel.setText(String.valueOf(slider.getValue()));
+				provider.get().onWireFeedRateChange(slider.getValue());
 			}
 		});		
 		
