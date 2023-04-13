@@ -1,17 +1,17 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1680727973549
+Bnd-LastModified: 1680896972842
 Build-Jdk: 1.8.0_362
 Built-By: osboxes
 Bundle-Activator: com.CPTC.X3DPrint.impl.Activator
 Bundle-Category: URCap
 Bundle-ContactAddress: 123 URCap Street
-Bundle-Copyright: Copyright notice (C)
+Bundle-Copyright: Copyright Xa Quan
 Bundle-Description: This is a description of the URCap
 Bundle-LicenseType: License type
 Bundle-ManifestVersion: 2
 Bundle-Name: X3DPrint
 Bundle-SymbolicName: com.CPTC.X3DPrint
-Bundle-Vendor: URCaps R us Inc.
+Bundle-Vendor: CPTC
 Bundle-Version: 1.0.0.SNAPSHOT
 Created-By: Apache Maven Bundle Plugin
 Export-Package: com.CPTC.X3DPrint;version="1.0.0.SNAPSHOT",com.jbm.urcap
@@ -26,9 +26,10 @@ Import-Package: com.ur.urcap.api.contribution;version="[1.8,2)",com.ur.u
  .api.domain.undoredo;version="[1.7,2)",com.ur.urcap.api.domain.userinte
  raction;version="[1.7,2)",com.ur.urcap.api.domain.userinteraction.keybo
  ard;version="[1.7,2)",com.ur.urcap.api.domain.value;version="[1.7,2)",c
- om.ur.urcap.api.domain.value.simple;version="[1.8,2)",com.CPTC.X3DPrint
- ;version="[1.0,2)",javax.swing,javax.swing.event,javax.swing.filechoose
- r,org.osgi.framework;version="[1.6,2)"
+ om.ur.urcap.api.domain.value.jointposition;version="[1.7,2)",com.ur.urc
+ ap.api.domain.value.simple;version="[1.8,2)",com.CPTC.X3DPrint;version=
+ "[1.0,2)",javax.swing,javax.swing.border,javax.swing.event,javax.swing.
+ filechooser,org.osgi.framework;version="[1.6,2)"
 Tool: Bnd-2.1.0.20130426-122213
 URCapCompatibility-CB3: true
 URCapCompatibility-eSeries: true

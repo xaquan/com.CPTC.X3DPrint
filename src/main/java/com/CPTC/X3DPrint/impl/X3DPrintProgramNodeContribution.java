@@ -1,15 +1,8 @@
 package com.CPTC.X3DPrint.impl;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.Reader;
-import java.io.StringWriter;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.Set;
 
 import com.CPTC.X3DPrint.GCode2URScript;
 import com.ur.urcap.api.contribution.ProgramNodeContribution;
@@ -17,11 +10,13 @@ import com.ur.urcap.api.contribution.program.ProgramAPIProvider;
 import com.ur.urcap.api.domain.data.DataModel;
 import com.ur.urcap.api.domain.io.AnalogIO;
 import com.ur.urcap.api.domain.io.DigitalIO;
+import com.ur.urcap.api.domain.io.IO.IOType;
 import com.ur.urcap.api.domain.script.ScriptWriter;
-import com.ur.urcap.api.domain.tcp.TCP;
 import com.ur.urcap.api.domain.undoredo.UndoRedoManager;
 import com.ur.urcap.api.domain.undoredo.UndoableChanges;
+import com.ur.urcap.api.domain.userinteraction.RobotPositionCallback;
 import com.ur.urcap.api.domain.value.Pose;
+import com.ur.urcap.api.domain.value.jointposition.JointPositions;
 import com.ur.urcap.api.domain.value.simple.Angle;
 import com.ur.urcap.api.domain.value.simple.Length;
 
@@ -29,18 +24,22 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 	
 	private final String PRINT_SPEED_KEY = "print_Speed";
 	private final String PRINT_ACCELERATION_KEY = "print_Acceleration";
+	private final String PRINT_BLEND_RADIUS_KEY = "print_Blend_Radius";
 	private final String TRIGGER_PIN_KEY = "trigger_pin";
 	private final String WIREFEED_PIN_KEY = "wirefeed_pin";
 	private final String ZERO_POSITION_KEY = "home_position";
 	private final String WIREFEED_RATE_KEY = "wirefeed_rate";
 	private final String GCODE_FILE_PATH_KEY = "gcode_file";
+	private final String ENABLE_CONTROL_SPEED = "enable_control_speed";
 	
-	private final double DEFAULT_PRINT_SPEED_MM = 3;
-	private final double DEFAULT_PRINT_ACCELERATION_MM = 5;
+	private final double DEFAULT_PRINT_SPEED_MM = 200;
+	private final double DEFAULT_PRINT_ACCELERATION_MM = 1;
+	private final double DEFAULT_PRINT_BLEND_RADIUS_MM = 1;
 	private final int DEFAULT_TRIGGER_PIN = -1;
 	private final int DEFAULT_WIREFEED_PIN = -1;
 	private final int DEFAULT_WIREFEED_RATE = 10;
 	private final String DEFAULT_GCODE_FILE_PATH = "";
+	private final boolean DEFAULT_ENABLE_CONTROL_SPEED = false;
 		
 	private final ProgramAPIProvider apiProvider;
 	private final X3DPrintProgramNodeView view;
@@ -62,7 +61,7 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 		this.view = view;
 		this.model = model;
 		this.undoRedoManager = this.apiProvider.getProgramAPI().getUndoRedoManager();
-		getCurrentTPC();
+//		getCurrentTPC();
 		getIOList();
 	}
 
@@ -71,15 +70,17 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 		if(isInitial) {
 			view.setTriggerComboItems(collectionDOs);
 			view.setWirefeedComboItems(collectionAOs);
-			view.setHomePositionLabel(null);
+			view.setlblHomePosition(null);
 			isInitial = false;
 		}
 		
 		view.setTriggerSelectedItem(getTriggerPin());
 		view.setWirefeedSelectedItem(getWirefeedPin());
+		view.setEnableControlSpeed(getEnableControlSpeed());
 		view.setSpeed(getPrintSpeed());
-		view.setAcceleration(getPrintAcceleration());		
-		view.setWirefeedRateSlider(getWirefeedRate());
+		view.setAcceleration(getPrintAcceleration());	
+		view.setBlendRadius(getPrintBlendRadius());	
+		view.setsliderWirefeedRate(getWirefeedRate());
 		
 		String filename = "";
 		if(getGcodeFile() != null) {
@@ -107,7 +108,20 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 		}
 		return false;
 	}
-	
+
+	@Override
+	public void generateScript(ScriptWriter writer) {
+
+		setURScriptTranslated(translateGCode(getGcodeFile()));
+		
+		writer.appendLine("textmsg(\"Control by Control Panel\",\""+ getEnableControlSpeed() +"\")");
+		for (String scriptLine : getTranlatedURScript()) {
+//			System.out.println(scriptLine);
+			writer.appendLine(scriptLine);
+		}
+		
+	}
+		
 	public void onSelectedFile(final File file) {
 		undoRedoManager.recordChanges(new UndoableChanges() {
 			
@@ -141,6 +155,18 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 
 	}
 	
+	public void onBlendRadiusTxtChanged(final double value) {
+		undoRedoManager.recordChanges(new UndoableChanges() {
+			
+			@Override
+			public void executeChanges() {
+				model.set(PRINT_BLEND_RADIUS_KEY, value);
+			}
+		});
+		
+
+	}
+	
 	public void onTriggerPinChanged(final int value) {
 		undoRedoManager.recordChanges(new UndoableChanges() {
 			
@@ -163,14 +189,18 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 	}
 	
 	public void onSetHome() {
-		undoRedoManager.recordChanges(new UndoableChanges() {
+
+		apiProvider.getUserInterfaceAPI().getUserInteraction().getUserDefinedRobotPosition(new RobotPositionCallback() {
 			
 			@Override
-			public void executeChanges() {
-				
-				model.set(ZERO_POSITION_KEY, getCurrentTPC());
+			public void onOk(Pose pose, JointPositions q) {
+				double[] res = pose.toArray(Length.Unit.M, Angle.Unit.RAD);
+				setHomePostion(res);
+				view.setlblHomePosition(res);
 			}
-		});		
+		});
+		
+		
 	}
 	
 	public void onWireFeedRateChange(final int value) {
@@ -182,21 +212,16 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 			}
 		});
 	}
-
-	@Override
-	public void generateScript(ScriptWriter writer) {
-
-		setURScriptTranslated(translateGCode(getGcodeFile()));
-		
-		for (String scriptLine : getTranlatedURScript()) {
-			writer.appendLine(scriptLine);
-		}
+	
+	public void onEnableControlSpeed(final boolean value) {
+		setEnableControlSpeed(value);
 		
 	}
 	
 	private ArrayList<String> translateGCode(File gcodeFile) {
-		GCode2URScript translator = new GCode2URScript(gcodeFile.getPath(), getHomePosition(), getPrintSpeed(), getPrintAcceleration());
-		translator.setTriggerPin(getTriggerPin());
+		GCode2URScript translator = new GCode2URScript(gcodeFile.getPath(), getHomePosition(), getPrintSpeed(), getPrintAcceleration(), getPrintBlendRadius());
+		translator.setTriggerPinNumber(getTriggerPin());
+		translator.setUseGCodeSpeed(!getEnableControlSpeed());
 		return translator.generateURScript();
 	}
 	
@@ -213,13 +238,13 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 		ArrayList<String> tmpDOs = new ArrayList<String>();
 		
 		for (AnalogIO aIO : colAIOs) {
-			if (!aIO.isInput()) {
+			if (!aIO.isInput() && aIO.getType() == IOType.ANALOG) {
 				tmpAOs.add(aIO.getName());
 			}
 		}
 		
 		for (DigitalIO dIO : colDIOs) {
-			if (!dIO.isInput()) {
+			if (!dIO.isInput() && dIO.getType() == IOType.DIGITAL) {
 				tmpDOs.add(dIO.getName());
 			}
 		}
@@ -239,13 +264,15 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 	}
 	
 	private double getPrintSpeed() {
-		
 		return model.get(PRINT_SPEED_KEY, DEFAULT_PRINT_SPEED_MM);
 	}
 	
 	private double getPrintAcceleration() {
-		
 		return model.get(PRINT_ACCELERATION_KEY, DEFAULT_PRINT_ACCELERATION_MM);
+	}
+	
+	private double getPrintBlendRadius() {
+		return model.get(PRINT_BLEND_RADIUS_KEY, DEFAULT_PRINT_BLEND_RADIUS_MM);
 	}
 	
 	private int getWirefeedRate() {
@@ -266,6 +293,35 @@ public class X3DPrintProgramNodeContribution implements ProgramNodeContribution 
 	
 	public double[] getHomePosition() {
 		return model.get(ZERO_POSITION_KEY, getCurrentTPC());
+	}
+	
+	private boolean getEnableControlSpeed() {
+		return model.get(ENABLE_CONTROL_SPEED, DEFAULT_ENABLE_CONTROL_SPEED);
+	}
+	
+	private void setEnableControlSpeed(final boolean value) {
+		undoRedoManager.recordChanges(new UndoableChanges() {
+			
+			@Override
+			public void executeChanges() {
+				model.set(ENABLE_CONTROL_SPEED, value);
+				System.out.println(value);
+
+				System.out.println(getEnableControlSpeed());
+			}
+		});
+	}
+	
+	private void setHomePostion(final double [] tcp) {
+		undoRedoManager.recordChanges(new UndoableChanges() {
+			
+			@Override
+			public void executeChanges() {
+
+				model.set(ZERO_POSITION_KEY, tcp);
+				
+			};			
+		});
 	}
 	
 	private File getGcodeFile() {

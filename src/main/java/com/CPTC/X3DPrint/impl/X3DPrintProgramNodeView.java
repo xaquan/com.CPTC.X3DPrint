@@ -2,37 +2,27 @@ package com.CPTC.X3DPrint.impl;
 
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
-import java.awt.event.InputMethodEvent;
-import java.awt.event.InputMethodListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.text.DecimalFormat;
-import java.util.Iterator;
 
-import javax.swing.Action;
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import com.ur.urcap.api.contribution.ContributionProvider;
@@ -43,14 +33,17 @@ import com.ur.urcap.api.domain.userinteraction.keyboard.KeyboardNumberInput;
 
 public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintProgramNodeContribution>
 {
-	private JComboBox<String> triggerComboBox = new JComboBox<String>();
-	private JComboBox<String> wirefeedComboBox = new JComboBox<String>();
-	private JSlider wirefeedRateSlider = new JSlider();
-	private JLabel filenameLabel = new JLabel();	
-	private JTextField speedTextField = new JTextField();
-	private JTextField accelerationTextField = new JTextField();
-	private JButton setHomeButton = new JButton("Set Home Position");
-	private JLabel homePositionLabel = new JLabel();
+	private JComboBox<String> cbxTrigger = new JComboBox<String>();
+	private JComboBox<String> cbxWirefeed = new JComboBox<String>();
+	private JSlider sliderWirefeedRate = new JSlider();
+	private JLabel lblFilename = new JLabel();	
+	private JTextField txtSpeed = new JTextField();
+	private JTextField txtAcceleration = new JTextField();
+	private JTextField txtBlendRadius = new JTextField();
+	private JButton btnSetHome = new JButton("Set Home Position");
+	private JLabel lblHomePosition = new JLabel();
+	private JCheckBox cbEnableControlSpeed = new JCheckBox();
+	private Box speedBox = Box.createVerticalBox();
 	
 	private final ViewAPIProvider apiProvider;
 	private ContributionProvider<X3DPrintProgramNodeContribution> provider;
@@ -58,45 +51,55 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 	public X3DPrintProgramNodeView(ViewAPIProvider apiProvider) {
 		this.apiProvider = apiProvider;
 		
-		triggerComboBox.addItemListener(triggerCbItemListener);
-		wirefeedComboBox.addItemListener(wirefeedCbItemListener);
+		cbxTrigger.addItemListener(triggerCbItemListener);
+		cbxWirefeed.addItemListener(wirefeedCbItemListener);
+		cbEnableControlSpeed.addChangeListener(cbEnableControlSpeedChangeListener);
 	}
 	
-	public void setWirefeedRateSlider(int rate) {
-		wirefeedRateSlider.setValue(rate);
+	public void setsliderWirefeedRate(int rate) {
+		sliderWirefeedRate.setValue(rate);
 	}
 	
 	public void setTriggerSelectedItem(int index) {
-		triggerComboBox.setSelectedIndex(index);
+		cbxTrigger.setSelectedIndex(index);
 	}
 	
 	public void setTriggerComboItems(String[] items) {
-		triggerComboBox.removeAllItems();
-		triggerComboBox.setModel(new DefaultComboBoxModel<String>(items));
+		cbxTrigger.removeAllItems();
+		cbxTrigger.setModel(new DefaultComboBoxModel<String>(items));
 	}
 	
 	public void setWirefeedSelectedItem(int index) {
-		wirefeedComboBox.setSelectedIndex(index);
+		cbxWirefeed.setSelectedIndex(index);
 	}
 	
 	public void setWirefeedComboItems(String[] items) {
-		wirefeedComboBox.removeAllItems();
-		wirefeedComboBox.setModel(new DefaultComboBoxModel<String>(items));
+		cbxWirefeed.removeAllItems();
+		cbxWirefeed.setModel(new DefaultComboBoxModel<String>(items));
+	}
+	
+	public void setEnableControlSpeed(boolean value) {
+		cbEnableControlSpeed.setSelected(value);
+		txtSpeed.setEnabled(value);
 	}
 	
 	public void setSpeed(double speed) {
-		speedTextField.setText(String.valueOf(speed));
+		txtSpeed.setText(String.valueOf(speed));
 	}
 	
 	public void setAcceleration(double accel) {
-		accelerationTextField.setText(String.valueOf(accel));
+		txtAcceleration.setText(String.valueOf(accel));
+	}
+	
+	public void setBlendRadius(double radius) {
+		txtBlendRadius.setText(String.valueOf(radius));
 	}
 	
 	public void setSelectedFileNameLabel(String filename) {
-		filenameLabel.setText(filename);
+		lblFilename.setText(filename);
 	}
 	
-	public void setHomePositionLabel(double[] positions) {
+	public void setlblHomePosition(double[] positions) {
 		String lbl = "Home is not set!";
 		if(positions != null) {
 			lbl = "[";
@@ -107,7 +110,7 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 			lbl += "]";
 		}
 		
-		homePositionLabel.setText(lbl);
+		lblHomePosition.setText(lbl);
 	}
 
 	@Override
@@ -115,22 +118,22 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 		this.provider = provider;		
 		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 //		panel.add(createIOSettingBar());
-		Box triggerBox = createDropBox(triggerComboBox, "Welder trigger Digital");
-		Box wirefeedBox = createDropBox(wirefeedComboBox, "Wirefeed Analog");
+		Box triggerBox = createDropBox(cbxTrigger, "Welder trigger Digital");
+		Box wirefeedBox = createDropBox(cbxWirefeed, "Wirefeed Analog");
 		
-		panel.add(createSetHomeButton());
+		panel.add(createbtnSetHome());
 		panel.add(triggerBox);
 		panel.add(wirefeedBox);
-		panel.add(createSlider(wirefeedRateSlider));
+		panel.add(createSlider(sliderWirefeedRate));
+		panel.add(createCheckBoxEnableSpeedControl(cbEnableControlSpeed));
 		
-		panel.add(createTexbox(speedTextField, "Speed mm/s"));
-		panel.add(createTexbox(accelerationTextField, "Speed mm/s^2"));
+		panel.add(createSpeedBox());
 		
 		panel.add(createFileChooser());
-		panel.add(filenameLabel);
+		panel.add(lblFilename);
 	}
 	
-	private Box createTexbox(final JTextField txt, String label) {
+	private Box createTextbox(final JTextField txt, String label) {
 		Box box = Box.createHorizontalBox();
 		box.setAlignmentX(Component.LEFT_ALIGNMENT);
 		txt.setPreferredSize(new Dimension(204, 30));
@@ -175,6 +178,29 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 		return box;
 	}
 	
+	private Box createSpeedBox() {
+		speedBox.setAlignmentX(Component.LEFT_ALIGNMENT); 
+		speedBox.setBorder(BorderFactory.createTitledBorder("Speed control"));
+		speedBox.add(createTextbox(txtSpeed, "Tool Speed mm/s"));
+		speedBox.add(createTextbox(txtAcceleration, "Tool Acceleration mm/s^2"));
+		speedBox.add(createTextbox(txtBlendRadius, "Blend with radius mm"));
+		txtSpeed.setEnabled(false);
+//		txtAcceleration.setEnabled(false);
+		return speedBox;
+	}
+	
+	private Box createCheckBoxEnableSpeedControl(JCheckBox cb) {
+		Box box = Box.createHorizontalBox();
+		box.setAlignmentX(Component.LEFT_ALIGNMENT);
+		
+		JLabel lbl = new JLabel("Control speed");
+		
+		box.add(cb);
+		box.add(lbl);
+		
+		return box;
+	}
+	
 	private Box createLabel(String text, JLabel label) {
 		Box box = Box.createHorizontalBox();
 		box.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -184,11 +210,11 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 		return box;
 	}
 	
-	private Box createSetHomeButton() {
+	private Box createbtnSetHome() {
 		Box box = Box.createHorizontalBox();
 		box.setAlignmentX(Component.LEFT_ALIGNMENT);
 		
-		setHomeButton.addMouseListener(new MouseListener() {
+		btnSetHome.addMouseListener(new MouseListener() {
 			
 			@Override
 			public void mouseReleased(MouseEvent e) {
@@ -217,12 +243,12 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				provider.get().onSetHome();
-				setHomePositionLabel(provider.get().getHomePosition());
+				
 			}
 		});
 		
-		box.add(setHomeButton);
-		box.add(homePositionLabel);
+		box.add(btnSetHome);
+		box.add(lblHomePosition);
 		
 		return box;
 	}
@@ -310,7 +336,7 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 				if (result == JFileChooser.APPROVE_OPTION) {
 					File selectedFile = fileChooser.getSelectedFile();
 					provider.get().onSelectedFile(selectedFile);
-					filenameLabel.setText(selectedFile.getName());
+					lblFilename.setText(selectedFile.getName());
 				}
 			}
 		});
@@ -322,20 +348,27 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 	private void showNumberalKeyBoard(final JTextField txt) {
 		KeyboardNumberInput<Double> kb = apiProvider.getUserInterfaceAPI().getUserInteraction().getKeyboardInputFactory().createDoubleKeypadInput();
 		kb.setInitialValue(Double.valueOf(txt.getText()));
+		if(txt == txtSpeed && cbEnableControlSpeed.isSelected() == false) {
+			return;
+		}
 		kb.show(txt, new KeyboardInputCallback<Double>() {
 			
 			@Override
 			public void onOk(Double value) {
 				if(value != 0) {
 					txt.setText(Double.toString(value));
-					if(txt == speedTextField) {
-	
+					if(txt == txtSpeed) {
 						provider.get().onSpeedTxtChanged(value);
 					}
 					
-					if(txt == accelerationTextField) {
+					if(txt == txtAcceleration) {
 	
 						provider.get().onAccelerationTxtChanged(value);
+					}
+					
+					if(txt == txtBlendRadius) {
+						
+						provider.get().onBlendRadiusTxtChanged(value);
 					}
 				}				
 			}
@@ -350,7 +383,7 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 		
 		@Override
 		public void itemStateChanged(ItemEvent e) {
-			provider.get().onTriggerPinChanged(triggerComboBox.getSelectedIndex());
+			provider.get().onTriggerPinChanged(cbxTrigger.getSelectedIndex());
 		}
 	};
 	
@@ -359,7 +392,18 @@ public class X3DPrintProgramNodeView implements SwingProgramNodeView<X3DPrintPro
 		@Override
 		public void itemStateChanged(ItemEvent e) {
 
-			provider.get().onWirefeedPinChanged(wirefeedComboBox.getSelectedIndex());
+			provider.get().onWirefeedPinChanged(cbxWirefeed.getSelectedIndex());
+		}
+	};
+	
+	private ChangeListener cbEnableControlSpeedChangeListener = new ChangeListener() {
+		
+		@Override
+		public void stateChanged(ChangeEvent e) {
+			boolean res = cbEnableControlSpeed.isSelected();
+//			txtAcceleration.setEnabled(res);
+			txtSpeed.setEnabled(res);
+			provider.get().onEnableControlSpeed(res);
 		}
 	};
 }

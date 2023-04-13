@@ -19,9 +19,9 @@
 		<!--********************************************************************-->
 		<!--******************* BEGINNING OF URCAP META DATA *******************-->
 		<urcap.symbolicname>com.CPTC.X3DPrint</urcap.symbolicname>
-		<urcap.vendor>URCaps R us Inc.</urcap.vendor>
+		<urcap.vendor>CPTC</urcap.vendor>
 		<urcap.contactAddress>123 URCap Street</urcap.contactAddress>
-		<urcap.copyright>Copyright notice (C)</urcap.copyright>
+		<urcap.copyright>Copyright Xa Quan</urcap.copyright>
 		<urcap.description>This is a description of the URCap</urcap.description>
 		<urcap.licenseType>License type</urcap.licenseType>
 		<urcap.compatibility.CB3>true</urcap.compatibility.CB3>

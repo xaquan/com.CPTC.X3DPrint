@@ -20,7 +20,7 @@ public class X3DPrintProgramNodeService implements SwingProgramNodeService<X3DPr
 
 	@Override
 	public void configureContribution(ContributionConfiguration configuration) {
-		configuration.setChildrenAllowed(false);
+//		configuration.setChildrenAllowed(true);
 		
 	}
 

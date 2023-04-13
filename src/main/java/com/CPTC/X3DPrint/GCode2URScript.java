@@ -16,6 +16,7 @@ import com.ur.urcap.api.domain.value.Pose;
 import com.ur.urcap.api.domain.value.Position;
 import com.ur.urcap.api.domain.value.Rotation;
 import com.ur.urcap.api.domain.value.simple.Length;
+import com.ur.urcap.api.domain.value.simple.SimpleValueFactory;
 import com.ur.urcap.api.domain.value.simple.Length.Unit;
 import com.ur.urcap.api.domain.value.simple.Angle;
 
@@ -27,31 +28,54 @@ public class GCode2URScript {
 	private final String URSCRIPT_POSE = "p[%f,%f,%f,%f,%f,%f]";
 	private final String URSCRIPT_MOVEJ = "movej(%s,a=%f,v=%f)\n";
 	private final String URSCRIPT_MOVEL = "movel(%s,a=%f,v=%f)\n";
-	private final String URSCRIPT_ANALOG_OUT = "set_analog_out(%d,%f)\n";
+	private final String URSCRIPT_MOVEP = "movep(%s,a=%f,v=%f, r=%f)\n";
+	private final String URSCRIPT_ANALOG_OUT = "set_analog_out(%f,%f)\n";
 	private final String URSCRIPT_DIGITAL_OUT = "set_digital_out(%d,%s)\n";
 	
-//	private double travel_speed;
-//	private double travel_acceleration;
-	private double printing_speed;
-	private double printing_acceleration;
+	private double travel_speed = 250;
+	private double travel_acceleration = 1200;
+	private double print_speed;
+	private double print_acceleration;
+	private double print_blend_radius;
 	private int trigger_pinNumber;
 	private double[] zeroPosition;
 	private String path;
 	private boolean currentWeldingTriggerState;
 	private double lastExtruderPos = 0;
+	private boolean useGCodeSpeed = true;
 	
-	public GCode2URScript(String path, double[] zeroPosition, double printing_speed_MM, double printing_acceleration_MM) {
+	public GCode2URScript(String path, double[] zeroPosition, double print_speed_MM, double print_acceleration_MM, double prit_blend_radius_MM) {
 //		this.travel_speed = travel_speed;
 //		this.travel_acceleration = travel_acceleration;
-		this.printing_speed = printing_speed_MM/1000;
-		this.printing_acceleration = printing_acceleration_MM/1000;
+		this.print_speed = print_speed_MM/1000;
+		this.print_acceleration = print_acceleration_MM/1000;
+		this.print_blend_radius = prit_blend_radius_MM/1000;
 		this.zeroPosition = zeroPosition;
 		this.path = path;
-		
 	}
 	
-	public void setTriggerPin(int pinNumber) {
-		this.trigger_pinNumber = pinNumber;
+	/**
+	 * <p>
+	 * Set Digital Out pin number to trigger the welder
+	 * </p>
+	 *
+	 * 
+	 */
+	public void setTriggerPinNumber(int pinNumber) {
+		trigger_pinNumber = pinNumber;
+	}
+	
+	/**
+	 * <p>
+	 * Using speed number in Gcode or from Control panel
+	 * Default is true
+	 * </p>
+	 *
+	 * 
+	 */
+	public void setUseGCodeSpeed(boolean value) {
+
+		useGCodeSpeed = value;
 	}
 	
 	public void setTCPHome(double[] position) {
@@ -111,13 +135,16 @@ public class GCode2URScript {
 	private void gCommandCodeG(String command, HashMap<String, String> agruments) {
 		String urScript = "";
 		String pose = URSCRIPT_POSE;
+		double acceleration = getPrintAcceleration();
 		
 		if(command.equals("G0")) {
-			urScript = URSCRIPT_MOVEJ;
+			gCommandCodeE(-1);
+			urScript = URSCRIPT_MOVEP;
+			acceleration = travel_acceleration;
 		}
 		
 		if(command.equals("G1")) {
-			urScript = URSCRIPT_MOVEL;			
+			urScript = URSCRIPT_MOVEP;
 		}
 		
 		if(agruments.get("E") != null) {
@@ -150,7 +177,7 @@ public class GCode2URScript {
 			}
 			
 			pose =  String.format(pose, X, Y, Z, Rx, Ry, Rz);
-			urScript = String.format(urScript, pose, getPrintSpeed(), printing_acceleration);
+			urScript = String.format(urScript, pose, getPrintSpeed(), acceleration, getPrintBlendRadius());
 			addURScriptLine(urScript);
 		}
 	}
@@ -169,8 +196,7 @@ public class GCode2URScript {
 	
 	private void gCommandCodeF(double speed, String command) {
 		double speed_M = speed/1000;
-//		setPrintSpeed(speed_M);
-//		addLogInRobot("Change speed", String.valueOf(speed_M));
+		setPrintSpeed(speed_M);
 	}
 
 	private void gCommandCodeE(double extruderPos) {
@@ -198,11 +224,32 @@ public class GCode2URScript {
 	}
 	
 	private void setPrintSpeed(double speed) {
-		printing_speed = speed;
+		if (useGCodeSpeed) {
+			print_speed = speed;
+			addLogInRobot("Change speed", String.valueOf(speed));
+		}
+	}
+	
+	private void setPrintAcceleration(double acc) {
+		if (useGCodeSpeed) {
+			print_acceleration = acc;
+		}
+	}
+	
+	private double getPrintAcceleration() {
+//		if(useGCodeSpeed) {
+//			return 1;
+//		}else {
+			return print_acceleration;
+//		}
+	}
+	
+	private double getPrintBlendRadius() {
+		return print_blend_radius;
 	}
 	
 	private double getPrintSpeed() {
-		return printing_speed;
+		return print_speed;
 	}
 	
 	private void addURScriptLine(String script) {
